@@ -56,7 +56,7 @@ Built with **ASP.NET Core 10** and runs entirely on your machine. Your data neve
 
 | Dashboard | Daily Costs |
 |-----------|-------------|
-| ![Dashboard](docs/images/Dashboard.png) | ![Daily Costs](docs/images/Dashboard.png) |
+| https://github.com/homayungit/claude-code-insights/blob/master/Claude-uses-details/docs/images/Dashboard.png | ![Daily Costs](docs/images/Dashboard.png) |
 
 | Tools | History |
 |-------|---------|
