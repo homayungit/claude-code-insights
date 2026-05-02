@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — Claude Uses Details</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">◈</span>
+            <div class="brand-text">
+                <span class="brand-name">Claude Uses</span>
+                <span class="brand-sub">Details</span>
+            </div>
+        </div>
+
+        <div class="sidebar-section-label">Analytics</div>
+        <a href="/" class="nav-item @(ViewData["Active"]?.ToString() == "Dashboard" ? "active" : "")">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Dashboard
+        </a>
+        <a href="/DailyCosts" class="nav-item @(ViewData["Active"]?.ToString() == "DailyCosts" ? "active" : "")">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Daily Costs
+        </a>
+        <a href="/Tools" class="nav-item @(ViewData["Active"]?.ToString() == "Tools" ? "active" : "")">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+            Tools
+        </a>
+
+        <div class="sidebar-section-label">Workspace</div>
+        <a href="/Projects" class="nav-item @(ViewData["Active"]?.ToString() == "Projects" ? "active" : "")">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3zM9 9h6M9 12h6M9 15h4"/></svg>
+            Projects
+        </a>
+        <a href="/History" class="nav-item @(ViewData["Active"]?.ToString() == "History" ? "active" : "")">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            History
+        </a>
+
+        <div class="sidebar-footer">
+            <span class="version-badge">Claude Uses Details</span>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <div class="main-area">
+        <header class="top-bar">
+            <div class="page-title-area">
+                <h1 class="page-heading">@ViewData["Title"]</h1>
+                @if (!string.IsNullOrEmpty(ViewData["Subtitle"]?.ToString()))
+                {
+                    <span class="page-subtitle">@ViewData["Subtitle"]</span>
+                }
+            </div>
+            <div class="top-bar-right">
+                <span class="live-indicator" id="liveIndicator"><span class="live-dot" id="liveDot"></span><span id="liveText">Live</span></span>
+                <span class="top-date">@DateTime.Now.ToString("MMM dd, yyyy")</span>
+            </div>
+        </header>
+
+        <div class="page-content">
+            @RenderBody()
+        </div>
+    </div>
+
+</div>
+
+@await RenderSectionAsync("Scripts", required: false)
+<script>
+(function () {
+    const dot  = document.getElementById('liveDot');
+    const text = document.getElementById('liveText');
+
+    function setStatus(state) {
+        if (state === 'refreshing') {
+            dot.style.background = 'var(--amber)';
+            dot.style.animationDuration = '0.4s';
+            text.textContent = 'Updating…';
+        } else if (state === 'connected') {
+            dot.style.background = 'var(--green)';
+            dot.style.animationDuration = '2s';
+            text.textContent = 'Live';
+        } else {
+            dot.style.background = 'var(--red)';
+            dot.style.animation = 'none';
+            text.textContent = 'Reconnecting…';
+        }
+    }
+
+    function connect() {
+        const es = new EventSource('/api/events');
+
+        es.onopen = () => setStatus('connected');
+
+        es.onmessage = (e) => {
+            if (e.data !== 'data-changed') return;
+            setStatus('refreshing');
+            if (typeof window.refreshData === 'function') {
+                Promise.resolve(window.refreshData()).finally(() => setStatus('connected'));
+            } else {
+                setStatus('connected');
+            }
+        };
+
+        es.onerror = () => {
+            setStatus('disconnected');
+            es.close();
+            // Auto-reconnect after 5s
+            setTimeout(connect, 5000);
+        };
+    }
+
+    connect();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+@page
+@model ClaudeUsesDetails.Pages.ToolsModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<div class="section-title">Tool Usage</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="toolsLayout">
+    <!-- Tool bar chart -->
+    <div class="chart-card">
+        <div class="chart-card-title">Calls by Tool — click to drill down</div>
+        <div id="toolBars"><div class="loading">Loading…</div></div>
+    </div>
+
+    <!-- Top bash commands -->
+    <div class="chart-card">
+        <div class="chart-card-title">Top Bash Commands</div>
+        <div id="bashCommands"><div class="loading">Loading…</div></div>
+    </div>
+</div>
+
+<!-- Detail panel -->
+<div id="detailSection" style="display:none;margin-top:16px">
+    <div class="section-title" id="detailTitle">Tool Details</div>
+    <div class="toolbar">
+        <span class="text-muted text-sm" id="detailCount"></span>
+        <button onclick="closeDetail()" style="background:var(--card-bg2);border:1px solid var(--border2);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px">Close</button>
+    </div>
+    <div class="table-card">
+        <table class="data-table">
+            <thead><tr id="detailHeader"></tr></thead>
+            <tbody id="detailBody"></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toString(); }
+
+async function loadTools() {
+    const data = await fetch('/api/tool-calls').then(r=>r.json());
+    const max = data.tools[0]?.count || 1;
+    document.getElementById('toolBars').innerHTML = data.tools.map(t => `
+        <div class="bar-row" onclick="loadDetail('${t.tool}')">
+            <span class="bar-label" title="${t.tool}">${t.tool}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(t.count/max*100).toFixed(1)}%"></div></div>
+            <span class="bar-count">${fmt(t.count)}</span>
+        </div>
+    `).join('');
+}
+
+async function loadBashCommands() {
+    const cmds = await fetch('/api/top-commands').then(r=>r.json());
+    if (!cmds.length) { document.getElementById('bashCommands').innerHTML = '<div class="text-muted text-sm">No bash commands found.</div>'; return; }
+    document.getElementById('bashCommands').innerHTML = cmds.map(c => `
+        <div class="bar-row">
+            <span class="bar-label" title="${c.command}" style="width:auto;flex:1;font-family:monospace;font-size:11px">${c.command}</span>
+            <span class="bar-count">${c.count}x</span>
+        </div>
+    `).join('');
+}
+
+async function loadDetail(toolName) {
+    document.getElementById('detailSection').style.display = 'block';
+    document.getElementById('detailTitle').textContent = `${toolName} — Details`;
+    document.getElementById('detailBody').innerHTML = '<tr><td colspan="4" class="loading">Loading…</td></tr>';
+    document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
+
+    const calls = await fetch(`/api/tool-details/${toolName}`).then(r=>r.json());
+    document.getElementById('detailCount').textContent = `${calls.length} calls`;
+
+    let headers = '', rows = '';
+    if (toolName === 'Bash') {
+        headers = '<th>Timestamp</th><th>Project</th><th>Command</th><th>Description</th>';
+        rows = calls.map(c=>`<tr><td class="text-muted text-sm">${c.timestamp?.slice(0,19).replace('T',' ')}</td><td>${c.project}</td><td class="mono" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.command||''}</td><td class="text-muted text-sm">${c.description||''}</td></tr>`).join('');
+    } else if (['Read','Edit','Write'].includes(toolName)) {
+        headers = '<th>Timestamp</th><th>Project</th><th colspan="2">File Path</th>';
+        rows = calls.map(c=>`<tr><td class="text-muted text-sm">${c.timestamp?.slice(0,19).replace('T',' ')}</td><td>${c.project}</td><td class="mono" colspan="2" style="word-break:break-all">${c.filePath||''}</td></tr>`).join('');
+    } else if (toolName === 'Grep') {
+        headers = '<th>Timestamp</th><th>Project</th><th>Pattern</th><th>Path</th>';
+        rows = calls.map(c=>`<tr><td class="text-muted text-sm">${c.timestamp?.slice(0,19).replace('T',' ')}</td><td>${c.project}</td><td class="mono">${c.pattern||''}</td><td class="mono text-muted">${c.path||''}</td></tr>`).join('');
+    } else if (toolName === 'Agent') {
+        headers = '<th>Timestamp</th><th>Project</th><th>Description</th><th>Subagent</th>';
+        rows = calls.map(c=>`<tr><td class="text-muted text-sm">${c.timestamp?.slice(0,19).replace('T',' ')}</td><td>${c.project}</td><td style="max-width:300px">${c.description||''}</td><td><span class="badge badge-purple">${c.subagentType||''}</span></td></tr>`).join('');
+    } else {
+        headers = '<th>Timestamp</th><th>Project</th><th colspan="2">Input</th>';
+        rows = calls.map(c=>`<tr><td class="text-muted text-sm">${c.timestamp?.slice(0,19).replace('T',' ')}</td><td>${c.project}</td><td class="mono text-sm" colspan="2">${c.input||''}</td></tr>`).join('');
+    }
+
+    document.getElementById('detailHeader').innerHTML = headers;
+    document.getElementById('detailBody').innerHTML = rows || '<tr><td colspan="4" class="empty-state">No data found.</td></tr>';
+}
+
+function closeDetail() {
+    document.getElementById('detailSection').style.display = 'none';
+}
+
+window.refreshData = () => Promise.all([loadTools(), loadBashCommands()]);
+window.refreshData();
+</script>
+}

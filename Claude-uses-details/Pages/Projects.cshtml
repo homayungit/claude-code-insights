@@ -1,0 +1,68 @@
+@page
+@model ClaudeUsesDetails.Pages.ProjectsModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<div class="section-title">Project Activity</div>
+<div class="toolbar">
+    <span class="text-muted text-sm" id="projectCount"></span>
+    <input class="search-box" id="searchBox" placeholder="Search projects…" oninput="filterProjects(this.value)">
+</div>
+
+<div class="table-card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Project</th>
+                <th class="num">Messages</th>
+                <th class="num">Sessions</th>
+                <th>First Seen</th>
+                <th>Last Active</th>
+            </tr>
+        </thead>
+        <tbody id="projectsBody"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+let allProjects = [];
+
+function fmtDate(ts) {
+    if (!ts) return '—';
+    return ts.slice(0,10);
+}
+
+function filterProjects(q) {
+    const filtered = q ? allProjects.filter(p => p.name.toLowerCase().includes(q.toLowerCase())) : allProjects;
+    renderTable(filtered);
+}
+
+function renderTable(projects) {
+    document.getElementById('projectsBody').innerHTML = projects.map((p, i) => `
+        <tr>
+            <td class="text-muted text-sm">${i+1}</td>
+            <td>
+                <div style="font-weight:500;color:var(--text)">${p.shortName}</div>
+                <div class="text-muted text-sm mono" style="font-size:11px">${p.name}</div>
+            </td>
+            <td class="num">${p.messages.toLocaleString()}</td>
+            <td class="num">${p.sessions}</td>
+            <td class="text-muted text-sm">${fmtDate(p.firstSeen)}</td>
+            <td class="text-muted text-sm">${fmtDate(p.lastSeen)}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="6" class="empty-state">No projects found.</td></tr>';
+}
+
+async function load() {
+    allProjects = await fetch('/api/projects').then(r=>r.json());
+    document.getElementById('projectCount').textContent = `${allProjects.length} projects`;
+    renderTable(allProjects);
+}
+
+window.refreshData = load;
+window.refreshData();
+</script>
+}

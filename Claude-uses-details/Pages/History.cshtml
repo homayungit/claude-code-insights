@@ -1,0 +1,87 @@
+@page
+@model ClaudeUsesDetails.Pages.HistoryModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<div class="section-title">Prompt History</div>
+<div class="toolbar">
+    <span class="text-muted text-sm" id="historyCount"></span>
+    <input class="search-box" id="searchBox" placeholder="Search prompts…" oninput="filterHistory(this.value)">
+</div>
+
+<div class="table-card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Project</th>
+                <th>Prompt</th>
+            </tr>
+        </thead>
+        <tbody id="historyBody"><tr><td colspan="3" class="loading">Loading…</td></tr></tbody>
+    </table>
+</div>
+
+<div style="text-align:center;padding:12px 0;color:var(--text3);font-size:12px" id="pager"></div>
+
+@section Scripts {
+<script>
+let allHistory = [];
+let page = 0;
+const PAGE_SIZE = 100;
+
+function filterHistory(q) {
+    page = 0;
+    const filtered = q
+        ? allHistory.filter(e => e.display?.toLowerCase().includes(q.toLowerCase()) || e.project?.toLowerCase().includes(q.toLowerCase()))
+        : allHistory;
+    renderPage(filtered, 0);
+    document.getElementById('historyCount').textContent = `${filtered.length.toLocaleString()} prompts${q ? ' (filtered)' : ''}`;
+}
+
+function renderPage(items, p) {
+    const start = p * PAGE_SIZE;
+    const slice = items.slice(start, start + PAGE_SIZE);
+    document.getElementById('historyBody').innerHTML = slice.map(e => {
+        const ts = e.timestamp?.slice(0,19).replace('T', ' ') ?? '';
+        const proj = e.project?.split(/[/\\]/).pop() ?? '';
+        const display = (e.display || '').replace(/</g,'&lt;');
+        return `<tr>
+            <td class="text-muted text-sm mono" style="white-space:nowrap">${ts}</td>
+            <td><span class="badge badge-purple">${proj}</span></td>
+            <td style="max-width:600px;word-break:break-word">${display}</td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="3" class="empty-state">No prompts found.</td></tr>';
+
+    const total = items.length;
+    const pages = Math.ceil(total / PAGE_SIZE);
+    if (pages > 1) {
+        const pagerEl = document.getElementById('pager');
+        pagerEl.innerHTML = `Page ${p+1} of ${pages} &nbsp;`;
+        if (p > 0) pagerEl.innerHTML += `<button onclick="goPage(${p-1})" style="background:var(--card-bg2);border:1px solid var(--border2);color:var(--text2);padding:4px 10px;border-radius:4px;cursor:pointer;margin:0 2px">← Prev</button>`;
+        if (p < pages-1) pagerEl.innerHTML += `<button onclick="goPage(${p+1})" style="background:var(--card-bg2);border:1px solid var(--border2);color:var(--text2);padding:4px 10px;border-radius:4px;cursor:pointer;margin:0 2px">Next →</button>`;
+    } else {
+        document.getElementById('pager').innerHTML = '';
+    }
+}
+
+function goPage(p) {
+    page = p;
+    const q = document.getElementById('searchBox').value;
+    const filtered = q ? allHistory.filter(e => e.display?.toLowerCase().includes(q.toLowerCase()) || e.project?.toLowerCase().includes(q.toLowerCase())) : allHistory;
+    renderPage(filtered, p);
+    window.scrollTo(0,0);
+}
+
+async function load() {
+    allHistory = await fetch('/api/history').then(r=>r.json());
+    allHistory.reverse(); // most recent first
+    document.getElementById('historyCount').textContent = `${allHistory.length.toLocaleString()} prompts`;
+    renderPage(allHistory, 0);
+}
+
+window.refreshData = load;
+window.refreshData();
+</script>
+}

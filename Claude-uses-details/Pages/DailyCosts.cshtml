@@ -1,0 +1,131 @@
+@page
+@model ClaudeUsesDetails.Pages.DailyCostsModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<!-- Cache summary cards -->
+<div class="section-title">Cache Performance</div>
+<div class="stat-grid" id="cacheCards"><div class="loading">Loading…</div></div>
+
+<!-- Daily costs chart -->
+<div class="section-title">Daily Spend</div>
+<div class="chart-card mb-16">
+    <div class="chart-card-title">Cost Per Day</div>
+    <canvas id="dailyBarChart" height="90"></canvas>
+</div>
+
+<!-- Daily breakdown table -->
+<div class="section-title">Breakdown</div>
+<div class="table-card">
+    <table class="data-table" id="costsTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th class="num">Messages</th>
+                <th class="num">Tools</th>
+                <th class="num">Sessions</th>
+                <th class="num">Input Tokens</th>
+                <th class="num">Output Tokens</th>
+                <th class="num">Cache Read</th>
+                <th class="num">Cache Write</th>
+                <th class="num">Cache Hit %</th>
+                <th class="num">Cost</th>
+            </tr>
+        </thead>
+        <tbody id="costsBody"><tr><td colspan="10" class="loading">Loading…</td></tr></tbody>
+        <tfoot id="costsFoot"></tfoot>
+    </table>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+const C = { purple:'#7c6bf5', border:'#22233a', text2:'#8b8fa8', amber:'#f5b942', green:'#43d98c', teal:'#2dd4bf' };
+Chart.defaults.color = C.text2;
+Chart.defaults.borderColor = C.border;
+Chart.defaults.font.size = 11;
+
+function fmt(n)    { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toString(); }
+function fmtCost(n){ return '$' + n.toFixed(n < 0.01 ? 4 : 2); }
+function hitRate(r, w) { const t = r+w; return t>0 ? (r/t*100).toFixed(1)+'%' : '0%'; }
+
+async function load() {
+    const data = await fetch('/api/daily-costs').then(r=>r.json());
+    const { days, totals, rates } = data;
+
+    // Cache cards
+    const allRead = totals.cacheRead, allInput = totals.input;
+    const hitPct = (allInput+allRead) > 0 ? (allRead/(allInput+allRead)*100).toFixed(1) : 0;
+    const savings = (allRead * (rates.input - rates.cacheRead)).toFixed(4);
+    const totalCost = totals.cost;
+    const withoutCache = (totals.input * rates.input + totals.output * rates.output + totals.cacheRead * rates.input + totals.cacheCreate * rates.input).toFixed(2);
+
+    document.getElementById('cacheCards').innerHTML = `
+        <div class="stat-card purple"><div class="stat-label">Cache Hit Rate</div><div class="stat-value text-green">${hitPct}%</div><div class="stat-sub">of all input tokens</div></div>
+        <div class="stat-card teal"><div class="stat-label">Cache Savings</div><div class="stat-value text-teal">${fmtCost(parseFloat(savings))}</div><div class="stat-sub">vs no cache</div></div>
+        <div class="stat-card amber"><div class="stat-label">Actual Cost</div><div class="stat-value text-amber">${fmtCost(totalCost)}</div><div class="stat-sub">with cache</div></div>
+        <div class="stat-card blue"><div class="stat-label">Without Cache</div><div class="stat-value text-red">~${fmtCost(parseFloat(withoutCache))}</div><div class="stat-sub">estimated</div></div>
+        <div class="stat-card green"><div class="stat-label">Cache Reads</div><div class="stat-value">${fmt(totals.cacheRead)}</div><div class="stat-sub">tokens</div></div>
+        <div class="stat-card blue"><div class="stat-label">Cache Writes</div><div class="stat-value">${fmt(totals.cacheCreate)}</div><div class="stat-sub">tokens</div></div>
+    `;
+
+    // Bar chart (last 30 days)
+    const last30 = days.slice(-30);
+    dailyChart = new Chart(document.getElementById('dailyBarChart'), {
+        type: 'bar',
+        data: {
+            labels: last30.map(d => d.date.slice(5)),
+            datasets: [
+                { label: 'Cost', data: last30.map(d=>d.cost), backgroundColor: C.purple+'bb', borderRadius: 3, borderSkipped: false }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmtCost(ctx.raw) } } },
+            scales: {
+                x: { grid: { display: false } },
+                y: { grid: { color: C.border }, ticks: { callback: v => fmtCost(v) } }
+            }
+        }
+    });
+
+    // Table
+    const tbody = document.getElementById('costsBody');
+    tbody.innerHTML = [...days].reverse().map(d => {
+        const hr = hitRate(d.cacheRead, d.input);
+        return `<tr>
+            <td>${d.date}</td>
+            <td class="num">${d.messages}</td>
+            <td class="num">${d.toolCalls}</td>
+            <td class="num">${d.sessions}</td>
+            <td class="num mono">${fmt(d.input)}</td>
+            <td class="num mono">${fmt(d.output)}</td>
+            <td class="num mono text-green">${fmt(d.cacheRead)}</td>
+            <td class="num mono">${fmt(d.cacheCreate)}</td>
+            <td class="num text-green">${hr}</td>
+            <td class="num text-amber">${fmtCost(d.cost)}</td>
+        </tr>`;
+    }).join('');
+
+    // Totals footer
+    const hr = hitRate(totals.cacheRead, totals.input);
+    document.getElementById('costsFoot').innerHTML = `<tr style="border-top:2px solid var(--border2);font-weight:600">
+        <td>TOTAL</td>
+        <td class="num">${totals.messages}</td>
+        <td class="num">${totals.toolCalls}</td>
+        <td class="num">${totals.sessions}</td>
+        <td class="num mono">${fmt(totals.input)}</td>
+        <td class="num mono">${fmt(totals.output)}</td>
+        <td class="num mono text-green">${fmt(totals.cacheRead)}</td>
+        <td class="num mono">${fmt(totals.cacheCreate)}</td>
+        <td class="num text-green">${hr}</td>
+        <td class="num text-amber">${fmtCost(totals.cost)}</td>
+    </tr>`;
+}
+
+let dailyChart;
+window.refreshData = () => { dailyChart?.destroy(); return load(); };
+window.refreshData();
+</script>
+}

@@ -1,0 +1,201 @@
+@page
+@model ClaudeUsesDetails.Pages.IndexModel
+@{
+    Layout = "~/Pages/Shared/_Layout.cshtml";
+}
+
+<!-- Today / All-Time panels -->
+<div class="section-title">Summary</div>
+<div class="panel-grid" id="summaryPanels">
+    <div class="panel today">
+        <div class="panel-header"><span class="panel-badge">Today</span></div>
+        <div class="panel-inner" id="todayMetrics"><div class="loading">Loading…</div></div>
+    </div>
+    <div class="panel alltime">
+        <div class="panel-header"><span class="panel-badge">All Time</span></div>
+        <div class="panel-inner" id="allTimeMetrics"><div class="loading">Loading…</div></div>
+    </div>
+</div>
+
+<!-- Cost trend + Model usage -->
+<div class="section-title">Trends</div>
+<div class="chart-row cols-3">
+    <div class="chart-card">
+        <div class="chart-card-title">Cost Trend — Last 30 Days</div>
+        <canvas id="costTrendChart" height="120"></canvas>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title">Model Usage</div>
+        <canvas id="modelChart" height="120"></canvas>
+        <div class="donut-legend" id="modelLegend"></div>
+    </div>
+</div>
+
+<!-- Peak hours + Cache -->
+<div class="chart-row cols-2">
+    <div class="chart-card">
+        <div class="chart-card-title">Peak Usage Hours</div>
+        <canvas id="hourlyChart" height="110"></canvas>
+    </div>
+    <div class="chart-card">
+        <div class="chart-card-title">Cache Performance</div>
+        <div id="cacheStats" class="loading">Loading…</div>
+    </div>
+</div>
+
+<!-- Activity heatmap -->
+<div class="section-title">Activity — Last 52 Weeks</div>
+<div class="heatmap-card">
+    <div class="heatmap-grid" id="heatmapGrid"></div>
+    <div class="heatmap-legend">
+        Less
+        <div class="legend-cell" style="background:var(--card-bg2)"></div>
+        <div class="legend-cell" data-level="1" style="background:#3d2b7a"></div>
+        <div class="legend-cell" data-level="2" style="background:#5a3db5"></div>
+        <div class="legend-cell" data-level="3" style="background:#7c5ef0"></div>
+        <div class="legend-cell" data-level="4" style="background:var(--purple)"></div>
+        More
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+const C = { purple:'#7c6bf5', blue:'#4d9cf5', green:'#43d98c', amber:'#f5b942', red:'#f06080', teal:'#2dd4bf', text2:'#8b8fa8', border:'#22233a', card2:'#1a1b26' };
+
+Chart.defaults.color = C.text2;
+Chart.defaults.borderColor = C.border;
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+
+function fmt(n) { return n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : n.toString(); }
+function fmtCost(n) { return '$' + n.toFixed(n < 0.01 ? 4 : 2); }
+
+async function loadStats() {
+    const stats = await fetch('/api/stats').then(r=>r.json());
+    renderPanel('todayMetrics', stats.today);
+    renderPanel('allTimeMetrics', stats.allTime);
+    renderCacheStats(stats.allTime);
+}
+
+function renderPanel(id, s) {
+    document.getElementById(id).innerHTML = `
+        <div><div class="pm-label">Sessions</div><div class="pm-value">${fmt(s.sessions)}</div></div>
+        <div><div class="pm-label">Messages</div><div class="pm-value">${fmt(s.messages)}</div></div>
+        <div><div class="pm-label">Tool Calls</div><div class="pm-value">${fmt(s.toolCalls)}</div></div>
+        <div><div class="pm-label">Est. Cost</div><div class="pm-value text-amber">${fmtCost(s.cost)}</div><div class="pm-sub">${fmt(s.inputTokens+s.outputTokens)} tokens</div></div>
+    `;
+}
+
+function renderCacheStats(s) {
+    const saved = s.cacheSavings;
+    document.getElementById('cacheStats').innerHTML = `
+        <div class="stat-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+            <div><div class="pm-label">Cache Hit Rate</div><div class="pm-value text-green">${s.cacheHitRate}%</div></div>
+            <div><div class="pm-label">Savings</div><div class="pm-value text-teal">${fmtCost(saved)}</div></div>
+            <div><div class="pm-label">Cache Reads</div><div class="pm-value">${fmt(s.cacheReadTokens)}</div></div>
+            <div><div class="pm-label">Cache Writes</div><div class="pm-value">${fmt(s.cacheCreateTokens)}</div></div>
+        </div>
+    `;
+}
+
+async function loadCostTrend() {
+    const data = await fetch('/api/daily-costs').then(r=>r.json());
+    const last30 = data.days.slice(-30);
+    const labels = last30.map(d => d.date.slice(5));
+    const costs = last30.map(d => d.cost);
+    costChart = new Chart(document.getElementById('costTrendChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                data: costs,
+                borderColor: C.purple,
+                backgroundColor: 'rgba(124,107,245,0.08)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmtCost(ctx.raw) } } },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                y: { grid: { color: C.border }, ticks: { callback: v => fmtCost(v) } }
+            }
+        }
+    });
+}
+
+async function loadModelChart() {
+    const models = await fetch('/api/model-usage').then(r=>r.json());
+    if (!models.length) return;
+    const colors = [C.purple, C.blue, C.teal, C.green, C.amber, C.red];
+    modelChart = new Chart(document.getElementById('modelChart'), {
+        type: 'doughnut',
+        data: {
+            labels: models.map(m=>m.shortName),
+            datasets: [{ data: models.map(m=>m.count), backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }]
+        },
+        options: {
+            responsive: true,
+            cutout: '68%',
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} (${models[ctx.dataIndex].percentage}%)` } } }
+        }
+    });
+    document.getElementById('modelLegend').innerHTML = models.map((m,i) =>
+        `<div class="legend-item"><span class="legend-dot" style="background:${colors[i%colors.length]}"></span>${m.shortName}<span class="legend-pct">${m.percentage}%</span></div>`
+    ).join('');
+}
+
+async function loadHourlyChart() {
+    const hours = await fetch('/api/hourly-usage').then(r=>r.json());
+    hourlyChart = new Chart(document.getElementById('hourlyChart'), {
+        type: 'bar',
+        data: {
+            labels: hours.map(h => h.label),
+            datasets: [{ data: hours.map(h=>h.count), backgroundColor: C.purple+'aa', borderRadius: 3, borderSkipped: false }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                y: { grid: { color: C.border }, beginAtZero: true }
+            }
+        }
+    });
+}
+
+async function loadHeatmap() {
+    const days = await fetch('/api/activity-heatmap').then(r=>r.json());
+    const grid = document.getElementById('heatmapGrid');
+
+    // Group into weeks (columns of 7)
+    const weeks = [];
+    for (let i = 0; i < days.length; i += 7)
+        weeks.push(days.slice(i, i + 7));
+
+    grid.innerHTML = weeks.map(week =>
+        `<div class="heatmap-col">${week.map(d =>
+            `<div class="heatmap-cell" data-level="${d.level}" title="${d.date}: ${d.count} prompts"></div>`
+        ).join('')}</div>`
+    ).join('');
+}
+
+let costChart, modelChart, hourlyChart;
+
+function destroyCharts() {
+    [costChart, modelChart, hourlyChart].forEach(c => c?.destroy());
+}
+
+window.refreshData = () => {
+    destroyCharts();
+    return Promise.all([loadStats(), loadCostTrend(), loadModelChart(), loadHourlyChart(), loadHeatmap()]);
+};
+
+window.refreshData();
+</script>
+}
