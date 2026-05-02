@@ -2,7 +2,7 @@
 
 > A real-time web dashboard for [Claude Code](https://claude.ai/code) — track your daily costs, cache savings, tool usage, project activity, and full prompt history. Updates live as you work, no browser reload needed.
 
-![Dashboard Screenshot](docs/images/dashboard.png)
+![Dashboard Screenshot](docs/images/Dashboard.png)
 
 ---
 
