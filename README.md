@@ -2,7 +2,7 @@
 
 > A real-time web dashboard for [Claude Code](https://claude.ai/code) — track your daily costs, cache savings, tool usage, project activity, and full prompt history. Updates live as you work, no browser reload needed.
 
-![Dashboard Screenshot](docs/images/Dashboard.png)
+![Dashboard](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/Dashboard.png)
 
 ---
 
@@ -54,13 +54,15 @@ Built with **ASP.NET Core 10** and runs entirely on your machine. Your data neve
 
 ## Screenshots
 
+## Screenshots
+
 | Dashboard | Daily Costs |
 |-----------|-------------|
-| https://github.com/homayungit/claude-code-insights/blob/master/Claude-uses-details/docs/images/Dashboard.png | ![Daily Costs](docs/images/Dashboard.png) |
+| ![Dashboard](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/Dashboard.png) | ![Daily Costs](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/Dashboard2.png) |
 
 | Tools | History |
 |-------|---------|
-| ![Tools](docs/images/tools.png) | ![History](docs/images/history.png) |
+| ![Tools](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/tools.png) | ![History](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/history.png) |
 
 ---
 
