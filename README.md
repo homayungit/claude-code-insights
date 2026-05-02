@@ -62,7 +62,7 @@ Built with **ASP.NET Core 10** and runs entirely on your machine. Your data neve
 
 | Tools | History |
 |-------|---------|
-| ![Tools](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/tools.png) | ![History](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/history.png) |
+| ![Tools](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/Tools.png) | ![History](https://raw.githubusercontent.com/homayungit/claude-code-insights/master/Claude-uses-details/docs/images/history.png) |
 
 ---
 
