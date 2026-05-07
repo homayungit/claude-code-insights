@@ -203,6 +203,22 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ---
 
+## ⭐ Support This Project
+
+If GitPulse saved you time or gave you a cool insight into your own coding habits — a **star** means a lot. It takes 2 seconds and it genuinely motivates me to keep building.
+
+- 🌟 **Star** the repo if you found it useful
+- 🍴 **Fork** it and make it your own
+- 🐛 **Open an issue** if something breaks
+- 💬 **Share** it with a developer friend who lives in the terminal
+
+---
+
+## 👨‍💻 Author
+
+**Md. Homayun Kabir**
+Principal Software Engineer | AI Prompting | Computer Vision | .NET
+
 ## License
 
 MIT
